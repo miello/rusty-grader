@@ -1,4 +1,4 @@
-use crate::utils::load_yaml;
+use crate::utils::{load_yaml, get_value_mapping};
 use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Default, Debug)]
@@ -18,11 +18,11 @@ impl Manifest {
     pub fn from(path: PathBuf) -> Self {
         let yaml = load_yaml(path);
         Manifest {
-            task_id: yaml["task_id"].as_str().unwrap().to_owned(),
-            output_only: yaml["output_only"].as_bool().unwrap_or(false),
-            time_limit: yaml["time_limit"].as_f64(),
-            memory_limit: yaml["memory_limit"].as_i64().map(|limit| limit as u64),
-            limit: yaml["limit"].as_hash().map(|limits| {
+            task_id: get_value_mapping(&yaml, "task_id").as_str().unwrap().to_owned(),
+            output_only: get_value_mapping(&yaml, "output_only").as_bool().unwrap_or(false),
+            time_limit: get_value_mapping(&yaml, "time_limit").as_f64(),
+            memory_limit: get_value_mapping(&yaml, "memory_limit").as_i64().map(|limit| limit as u64),
+            limit: get_value_mapping(&yaml, "limit").as_mapping().map(|limits| {
                 limits
                     .iter()
                     .map(|(language, limit)| {
@@ -36,14 +36,14 @@ impl Manifest {
                     })
                     .collect()
             }),
-            compile_files: yaml["compile_files"].as_hash().map(|compile_files| {
+            compile_files: get_value_mapping(&yaml, "compile_files").as_mapping().map(|compile_files| {
                 compile_files
                     .iter()
                     .map(|(language, files)| {
                         (
                             language.as_str().unwrap().to_owned(),
                             files
-                                .as_vec()
+                                .as_sequence()
                                 .unwrap()
                                 .iter()
                                 .map(|file| file.as_str().unwrap().to_owned())
@@ -52,10 +52,10 @@ impl Manifest {
                     })
                     .collect()
             }),
-            checker: yaml["checker"].as_str().map(|checker| checker.to_owned()),
-            grouper: yaml["grouper"].as_str().map(|grouper| grouper.to_owned()),
-            groups: yaml["groups"]
-                .as_vec()
+            checker: get_value_mapping(&yaml, "checker").as_str().map(|checker| checker.to_owned()),
+            grouper: get_value_mapping(&yaml, "grouper").as_str().map(|grouper| grouper.to_owned()),
+            groups: get_value_mapping(&yaml, "groups")
+                .as_sequence()
                 .map(|groups| {
                     groups
                         .iter()

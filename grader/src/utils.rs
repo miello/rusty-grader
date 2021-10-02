@@ -1,6 +1,6 @@
 use crate::s;
 use std::{env, fs, path::PathBuf};
-use yaml_rust::{Yaml, YamlLoader};
+use serde_yaml::{Mapping, Value};
 
 pub fn get_env(name: &'static str) -> String {
     env::var(name).unwrap()
@@ -17,32 +17,28 @@ pub fn get_base_path() -> PathBuf {
     )
 }
 
-pub fn load_yaml(path: PathBuf) -> Yaml {
+pub fn load_yaml(path: PathBuf) -> Mapping {
     let file = fs::read_to_string(path).expect("Unable to read yaml file");
-    YamlLoader::load_from_str(&file)
-        .unwrap()
-        .into_iter()
-        .next()
-        .unwrap()
+    serde_yaml::from_str(&file).unwrap()
 }
 
-fn yaml_unwrap_hash(yaml: Yaml, arg: &str) -> Option<Yaml> {
-    yaml.into_hash().unwrap().remove(&Yaml::String(s!(arg)))
+fn yaml_unwrap_hash(yaml: &Mapping, arg: &str) -> Option<Value> {
+    Some(yaml[&Value::String(s!(arg))].to_owned())
 }
 
 pub fn get_code_extension(language: &str) -> String {
     let config = load_yaml(get_base_path().join("scripts").join("config.yaml"));
 
-    for lang in yaml_unwrap_hash(config, "language")
+    for lang in yaml_unwrap_hash(&config, "language")
         .unwrap()
-        .into_vec()
-        .unwrap()
+        .as_mapping()
     {
-        if Some(language) == lang["id"].as_str() {
+        if Some(language) == get_value_mapping(&lang, "id").as_str() {
             return yaml_unwrap_hash(lang, "extension")
                 .unwrap()
-                .into_string()
-                .unwrap();
+                .as_str()
+                .unwrap()
+                .to_owned();
         }
     }
 
@@ -51,8 +47,16 @@ pub fn get_code_extension(language: &str) -> String {
 
 pub fn get_message(status: &str) -> String {
     let config = load_yaml(get_base_path().join("scripts").join("config.yaml"));
-    yaml_unwrap_hash(yaml_unwrap_hash(config, "message").unwrap(), status)
-        .map_or(String::new(), |value| value.into_string().unwrap())
+    yaml_unwrap_hash(yaml_unwrap_hash(&config, "message").unwrap().as_mapping().unwrap(), status)
+        .map_or(String::new(), |value| value.as_str().unwrap().to_owned())
+}
+
+pub fn get_key_mapping(key: &str) -> Value {
+    Value::String(key.to_owned())
+}
+
+pub fn get_value_mapping(yaml: &Mapping, key: &str) -> Value {
+    yaml.get(&get_key_mapping(key)).cloned().unwrap_or_default()
 }
 
 #[cfg(test)]
